@@ -1,19 +1,18 @@
-// index.tsx or HomeScreen.tsx
-import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, View, ActivityIndicator, TouchableOpacity, Dimensions, ScrollView } from 'react-native';
-import { LineChart, BarChart } from 'react-native-chart-kit';
-import { database } from '../../firebase';
-import { ref, onValue } from '@react-native-firebase/database';
-import { CircularProgress } from 'react-native-circular-progress';
+//gfvdvdv
 import { Ionicons } from '@expo/vector-icons';
+import { onValue, ref } from '@react-native-firebase/database';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { BarChart, LineChart } from 'react-native-chart-kit';
+import { CircularProgress } from 'react-native-circular-progress';
+import { database } from '../../firebase';
 
 const HomeScreen = () => {
   const [temperature, setTemperature] = useState<number | null>(null);
-  const [humanPresence, setHumanPresence] = useState<boolean | null>(null);
-  const [soilMoisture, setSoilMoisture] = useState<number | null>(null);
+  const [soilMoisture, setSoilMoisture] = useState<number | null>(null); // No default, use database value
   const [humidity, setHumidity] = useState<number | null>(null);
   const [tempHistory, setTempHistory] = useState<number[]>([]);
-  const [lastUpdate, setLastUpdate] = useState<string>('');
+  const [lastUpdate, setLastUpdate] = useState<string>('N/A');
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -21,59 +20,32 @@ const HomeScreen = () => {
     setLoading(true);
     setError(null);
 
-    const tempRef = ref(database, 'sensor/temperature');
-    const presenceRef = ref(database, 'sensor/humanPresence');
-    const soilRef = ref(database, 'sensor/soil_moisture'); // Updated to match database field
-    const humidityRef = ref(database, 'sensor/humidity');
+    const sensorRef = ref(database, 'sensor');
 
-    const unsubscribeTemp = onValue(tempRef, (snapshot) => {
+    const unsubscribe = onValue(sensorRef, (snapshot) => {
       if (snapshot.exists()) {
-        const { value, timestamp } = snapshot.val();
-        setTemperature(value);
-        setLastUpdate(new Date(timestamp).toLocaleString());
-        setTempHistory((prev) => [...prev.slice(-5), value].slice(-5)); // Keep last 5 values
+        const data = snapshot.val();
+        console.log('Firebase Data:', JSON.stringify(data, null, 2));
+        setTemperature(data.temperature || null);
+        setSoilMoisture(data.soil_moisture || null); // Updated to match 'soil_moisture'
+        setHumidity(data.humidity || null);
+        setTempHistory((prev) => [...prev.slice(-5), data.temperature || 0].slice(-5));
+        setLastUpdate(new Date().toLocaleString());
+      } else {
+        setTemperature(null);
+        setSoilMoisture(null);
+        setHumidity(null);
+        setLastUpdate('N/A');
+        console.log('No data available at sensor path');
       }
       setLoading(false);
     }, (err) => {
-      setError(err.message);
+      setError(`Firebase Error: ${err.message} (Code: ${err.code})`);
+      console.log('Error fetching data:', err);
       setLoading(false);
     });
 
-    const unsubscribePresence = onValue(presenceRef, (snapshot) => {
-      if (snapshot.exists()) {
-        const { status, timestamp } = snapshot.val();
-        setHumanPresence(status);
-        setLastUpdate(new Date(timestamp).toLocaleString());
-      }
-    }, (err) => {
-      setError(err.message);
-    });
-
-    const unsubscribeSoil = onValue(soilRef, (snapshot) => {
-      if (snapshot.exists()) {
-        const { value } = snapshot.val();
-        setSoilMoisture(value);
-      }
-    }, (err) => {
-      setError(err.message);
-    });
-
-    const unsubscribeHumidity = onValue(humidityRef, (snapshot) => {
-      if (snapshot.exists()) {
-        const { value } = snapshot.val();
-        setHumidity(value);
-      }
-    }, (err) => {
-      setError(err.message);
-    });
-
-    // Cleanup subscriptions on unmount
-    return () => {
-      unsubscribeTemp();
-      unsubscribePresence();
-      unsubscribeSoil();
-      unsubscribeHumidity();
-    };
+    return () => unsubscribe();
   }, []);
 
   const chartConfig = {
@@ -125,7 +97,7 @@ const HomeScreen = () => {
         <View style={styles.weatherBody}>
           <Ionicons name="sunny" size={64} color="#FFC700" />
           <View>
-            <Text style={styles.weatherTemp}>23°C</Text>
+            <Text style={styles.weatherTemp}>31°C</Text>
             <Text style={styles.weatherDesc}>Probability rain: 15%</Text>
           </View>
         </View>
@@ -144,25 +116,8 @@ const HomeScreen = () => {
               {
                 (fill) => (
                   <Text style={styles.gaugeText}>
-                    {temperature}°C
+                    {temperature !== null ? `${temperature}°C` : 'N/A'}
                   </Text>
-                )
-              }
-            </CircularProgress>
-          </View>
-        </View>
-        <View style={[styles.card, styles.halfCard]}>
-          <Text style={styles.cardTitle}>Presence</Text>
-          <View style={styles.gaugeContainer}>
-            <CircularProgress
-              size={120}
-              width={12}
-              fill={humanPresence ? 100 : 0}
-              tintColor="#FFC700"
-              backgroundColor="#3d5875">
-              {
-                (fill) => (
-                  <Ionicons name={humanPresence ? "person" : "walk"} size={40} color="#FFC700" />
                 )
               }
             </CircularProgress>
@@ -177,13 +132,13 @@ const HomeScreen = () => {
             <CircularProgress
               size={120}
               width={12}
-              fill={soilMoisture || 0}
+              fill={soilMoisture !== null ? soilMoisture : 0} // Use actual value or 0
               tintColor="#795548"
               backgroundColor="#D7CCC8">
               {
                 (fill) => (
                   <Text style={styles.gaugeText}>
-                    {soilMoisture}%
+                    {soilMoisture !== null ? `${soilMoisture}%` : 'N/A'}
                   </Text>
                 )
               }
@@ -196,13 +151,13 @@ const HomeScreen = () => {
             <CircularProgress
               size={120}
               width={12}
-              fill={humidity || 0}
+              fill={humidity !== null ? humidity : 0} // Use actual value or 0
               tintColor="#2196F3"
               backgroundColor="#BBDEFB">
               {
                 (fill) => (
                   <Text style={styles.gaugeText}>
-                    {humidity}%
+                    {humidity !== null ? `${humidity}%` : 'N/A'}
                   </Text>
                 )
               }

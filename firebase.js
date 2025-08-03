@@ -1,8 +1,7 @@
-// firebase.js
-import { initializeApp, getApps, getApp } from '@react-native-firebase/app';
+// firebase.js (unchanged)
+import { getApp, getApps, initializeApp } from '@react-native-firebase/app';
 import { getDatabase } from "@react-native-firebase/database";
 
-// Your web app's Firebase configuration
 const firebaseConfig = {
   apiKey: "AIzaSyBOpWk58duhC4E1JMP8fdiKoMyLZEveohE",
   authDomain: "smart-farming-dc210.firebaseapp.com",
